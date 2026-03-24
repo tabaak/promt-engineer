@@ -2,6 +2,7 @@
 
 import { useChat } from '@ai-sdk/react';
 import { useState, useRef, useEffect } from 'react';
+import { useSession, signOut } from 'next-auth/react';
 
 const UserIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0" style={{ color: 'var(--brand-light)', filter: 'drop-shadow(0 0 8px rgba(165, 180, 252, 0.6))' }}>
@@ -41,7 +42,37 @@ const CheckIcon = () => (
   </svg>
 );
 
+const ThinkingIcon = () => (
+  <div style={{ display: 'flex', gap: '4px', alignItems: 'center', height: '24px', paddingLeft: '4px' }}>
+    <div className="dot-flashing" style={{ animationDelay: '0s' }}></div>
+    <div className="dot-flashing" style={{ animationDelay: '0.2s' }}></div>
+    <div className="dot-flashing" style={{ animationDelay: '0.4s' }}></div>
+    <style>{`
+      .dot-flashing {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background-color: var(--brand-light, #818cf8);
+        animation: dot-flashing 0.8s infinite alternate;
+      }
+      @keyframes dot-flashing {
+        0% { opacity: 0.3; transform: scale(0.8); }
+        100% { opacity: 1; transform: scale(1.2); }
+      }
+    `}</style>
+  </div>
+);
+
+const SignOutIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+    <polyline points="16 17 21 12 16 7" />
+    <line x1="21" y1="12" x2="9" y2="12" />
+  </svg>
+);
+
 export default function Chat() {
+  const { data: session } = useSession();
   const [input, setInput] = useState('');
   const [finalPrompt, setFinalPrompt] = useState<string | null>(null);
   const [leftWidth, setLeftWidth] = useState(60);
@@ -62,7 +93,15 @@ export default function Chat() {
       if (!isDragging || !containerRef.current) return;
       const rect = containerRef.current.getBoundingClientRect();
       const newWidth = ((e.clientX - rect.left) / rect.width) * 100;
-      if (newWidth > 20 && newWidth < 80) setLeftWidth(newWidth);
+
+      // MAXIMUM and MINIMUM resize limits
+      // newWidth is the width of the Left Pane (Chat). 
+      // The Canvas (Right Pane) gets the remaining percentage.
+      // Example: newWidth > 25 means Chat is at least 25% wide (Canvas is max 75%)
+      // Example: newWidth < 65 means Chat is max 65% wide (Canvas is at least 35%)
+      if (newWidth > 45 && newWidth < 65) {
+        setLeftWidth(newWidth);
+      }
     };
     const handleMouseUp = () => setIsDragging(false);
 
@@ -112,7 +151,61 @@ export default function Chat() {
 
       {/* Left Pane: Chat */}
       <div className="chat-pane" style={{ display: 'flex', flexDirection: 'column', width: `${leftWidth}%`, minWidth: '300px' }}>
-        <header style={{ flexShrink: 0, marginBottom: '2rem', textAlign: 'center' }}>
+        <header style={{ flexShrink: 0, marginBottom: '2rem', position: 'relative' }}>
+          {session?.user && (
+            <div style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              display: 'flex',
+              flexDirection: 'row',
+              alignItems: 'flex-start',
+              gap: '0.6rem',
+            }}>
+              {session.user.image && (
+                <img
+                  src={session.user.image}
+                  alt=""
+                  style={{
+                    width: '28px',
+                    height: '28px',
+                    borderRadius: '50%',
+                    border: '1px solid rgba(165, 180, 252, 0.3)',
+                  }}
+                />
+              )}
+              <button
+                onClick={() => signOut({ callbackUrl: '/login' })}
+                id="sign-out-button"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.35rem',
+                  padding: '0.3rem 0.6rem',
+                  backgroundColor: 'rgba(248, 113, 113, 0.1)',
+                  color: 'var(--error)',
+                  border: '1px solid rgba(248, 113, 113, 0.2)',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '0.7rem',
+                  fontWeight: 500,
+                  fontFamily: 'inherit',
+                  transition: 'all 0.2s ease',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = 'rgba(248, 113, 113, 0.2)';
+                  e.currentTarget.style.borderColor = 'rgba(248, 113, 113, 0.4)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'rgba(248, 113, 113, 0.1)';
+                  e.currentTarget.style.borderColor = 'rgba(248, 113, 113, 0.2)';
+                }}
+              >
+                <SignOutIcon />
+                {leftWidth < 50 ? '' : 'Sign Out'}
+              </button>
+            </div>
+          )}
           <h1 className="main-title" style={{ textAlign: 'center' }}>AI Prompt Engineer</h1>
           <p className="subtitle" style={{ textAlign: 'center' }}>Refine and optimize your prompts</p>
         </header>
@@ -200,18 +293,41 @@ export default function Chat() {
                   )}
                 </div>
 
-                <div style={{ 
-                  fontSize: '1rem', 
-                  color: 'var(--text-primary)', 
-                  whiteSpace: 'pre-wrap', 
+                <div style={{
+                  fontSize: '1rem',
+                  color: 'var(--text-primary)',
+                  whiteSpace: 'pre-wrap',
                   lineHeight: '1.6',
                   animation: message.role === 'assistant' ? 'textStreamReveal 0.6s ease-out' : 'none'
                 }}>
-                  {displayContent}
+                  {message.role === 'assistant' && (!rawContent || !rawContent.trim()) ? (
+                    <ThinkingIcon />
+                  ) : (
+                    displayContent
+                  )}
                 </div>
               </div>
             );
           })}
+          {isLoading && (!messages || messages.length === 0 || messages[messages.length - 1].role === 'user') && (
+            <div
+              className="result-card"
+              style={{
+                maxWidth: '85%',
+                alignSelf: 'flex-start',
+                marginLeft: '0',
+                marginRight: 'auto',
+                border: '1px solid var(--border-subtle)',
+                backgroundColor: 'var(--bg-card)',
+              }}
+            >
+              <div className="card-header" style={{ marginBottom: '0.5rem', opacity: 0.8 }}>
+                <BotIcon />
+                <span className="region-badge" style={{ marginLeft: '0.5rem' }}>Assistant</span>
+              </div>
+              <ThinkingIcon />
+            </div>
+          )}
           <div ref={messagesEndRef} style={{ height: '1px', flexShrink: 0 }} />
         </main>
 
