@@ -78,9 +78,26 @@ export default function Chat() {
   const [leftWidth, setLeftWidth] = useState(60);
   const [isDragging, setIsDragging] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
+  const [credits, setCredits] = useState<number | null>(null);
+  const [showCredits, setShowCredits] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const { messages, sendMessage, append, status } = useChat() as any;
   const isLoading = status === 'submitted' || status === 'streaming';
+
+  const toggleCredits = async () => {
+    if (!showCredits) {
+      try {
+        const res = await fetch('/api/credits');
+        const data = await res.json();
+        if (data.credits !== undefined) {
+          setCredits(data.credits);
+        }
+      } catch (err) {
+        console.error("Failed to fetch credits", err);
+      }
+    }
+    setShowCredits(!showCredits);
+  };
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -94,11 +111,6 @@ export default function Chat() {
       const rect = containerRef.current.getBoundingClientRect();
       const newWidth = ((e.clientX - rect.left) / rect.width) * 100;
 
-      // MAXIMUM and MINIMUM resize limits
-      // newWidth is the width of the Left Pane (Chat). 
-      // The Canvas (Right Pane) gets the remaining percentage.
-      // Example: newWidth > 25 means Chat is at least 25% wide (Canvas is max 75%)
-      // Example: newWidth < 65 means Chat is max 65% wide (Canvas is at least 35%)
       if (newWidth > 45 && newWidth < 65) {
         setLeftWidth(newWidth);
       }
@@ -162,48 +174,127 @@ export default function Chat() {
               alignItems: 'flex-start',
               gap: '0.6rem',
             }}>
-              {session.user.image && (
-                <img
-                  src={session.user.image}
-                  alt=""
+              <div style={{ position: 'relative' }}>
+                <div
+                  onClick={toggleCredits}
                   style={{
-                    width: '28px',
-                    height: '28px',
-                    borderRadius: '50%',
-                    border: '1px solid rgba(165, 180, 252, 0.3)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '48px',
+                    height: '48px',
+                    backgroundColor: showCredits ? 'rgba(165, 180, 252, 0.12)' : 'rgba(111, 131, 232, 0.09)',
+                    borderRadius: '12px',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    border: showCredits ? '1px solid rgba(165, 180, 252, 0.4)' : '1px solid rgba(165, 180, 252, 0.15)',
+                    boxShadow: showCredits ? '0 0 12px rgba(165, 180, 252, 0.15)' : 'none',
                   }}
-                />
-              )}
-              <button
-                onClick={() => signOut({ callbackUrl: '/login' })}
-                id="sign-out-button"
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.35rem',
-                  padding: '0.3rem 0.6rem',
-                  backgroundColor: 'rgba(248, 113, 113, 0.1)',
-                  color: 'var(--error)',
-                  border: '1px solid rgba(248, 113, 113, 0.2)',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  fontSize: '0.7rem',
-                  fontWeight: 500,
-                  fontFamily: 'inherit',
-                  transition: 'all 0.2s ease',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = 'rgba(248, 113, 113, 0.2)';
-                  e.currentTarget.style.borderColor = 'rgba(248, 113, 113, 0.4)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = 'rgba(248, 113, 113, 0.1)';
-                  e.currentTarget.style.borderColor = 'rgba(248, 113, 113, 0.2)';
-                }}
-              >
-                <SignOutIcon />
-                {leftWidth < 50 ? '' : 'Sign Out'}
-              </button>
+                  onMouseEnter={(e) => {
+                    if (!showCredits) e.currentTarget.style.backgroundColor = 'rgba(165, 180, 252, 0.13)';
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!showCredits) e.currentTarget.style.backgroundColor = 'rgba(165, 180, 252, 0.09)';
+                  }}
+                >
+                  {session?.user?.image ? (
+                    <img
+                      src={session.user.image}
+                      alt="User Avatar"
+                      style={{
+                        width: '38px',
+                        height: '38px',
+                        borderRadius: '50%',
+                        border: '1px solid rgba(165, 180, 252, 0.3)',
+                        transition: 'all 0.2s ease',
+                      }}
+                    />
+                  ) : (
+                    <div
+                      style={{
+                        width: '38px',
+                        height: '38px',
+                        borderRadius: '50%',
+                        border: '1px solid rgba(165, 180, 252, 0.3)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        backgroundColor: 'rgba(129, 140, 248, 0.1)',
+                        color: 'var(--brand-light)',
+                        transition: 'all 0.2s ease',
+                      }}
+                    >
+                      <UserIcon />
+                    </div>
+                  )}
+                </div>
+                {showCredits && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '56px',
+                    left: '0',
+                    backgroundColor: 'var(--bg-card, #1e1e24)',
+                    border: '1px solid var(--border-subtle, #333)',
+                    padding: '0.7rem',
+                    borderRadius: '8px',
+                    fontSize: '0.85rem',
+                    color: 'var(--text-primary)',
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+                    zIndex: 50,
+                    minWidth: '160px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '0.6rem',
+                  }}>
+                    <div style={{ paddingBottom: '0.5rem', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                      <div style={{ fontSize: '0.75rem', opacity: 0.6, marginBottom: '0.2rem' }}>Signed in as</div>
+                      <div style={{ fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '140px' }} title={session.user.name || session.user.email || ''}>
+                        {session.user.name || session.user.email}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '0.2rem 0' }}>
+                      <span style={{ fontSize: '0.85rem' }}>Credits</span>
+                      {credits !== null ? (
+                        <span style={{ fontWeight: 600, color: 'var(--blue-light)' }}>{credits}</span>
+                      ) : (
+                        <span style={{ opacity: 0.5, fontSize: '0.8rem' }}>...</span>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => signOut({ callbackUrl: '/login' })}
+                      id="sign-out-button"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.4rem',
+                        padding: '0.4rem',
+                        backgroundColor: 'rgba(248, 113, 113, 0.1)',
+                        color: 'var(--error, #f87171)',
+                        border: '1px solid rgba(248, 113, 113, 0.2)',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        fontSize: '0.8rem',
+                        fontWeight: 500,
+                        transition: 'all 0.2s ease',
+                        width: '100%',
+                        marginTop: '0.2rem',
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = 'rgba(248, 113, 113, 0.2)';
+                        e.currentTarget.style.borderColor = 'rgba(248, 113, 113, 0.4)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'rgba(248, 113, 113, 0.1)';
+                        e.currentTarget.style.borderColor = 'rgba(248, 113, 113, 0.2)';
+                      }}
+                    >
+                      <SignOutIcon />
+                      Sign Out
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           )}
           <h1 className="main-title" style={{ textAlign: 'center' }}>AI Prompt Engineer</h1>
@@ -344,21 +435,36 @@ export default function Chat() {
                 append({ role: 'user', content: input });
               }
               setInput('');
+              const textarea = e.currentTarget.querySelector('textarea');
+              if (textarea) {
+                textarea.style.height = 'auto';
+              }
             }}
           >
-            <input
+            <textarea
               className="search-input"
               value={input}
-              onChange={e => setInput(e.currentTarget.value)}
+              onChange={e => {
+                setInput(e.currentTarget.value);
+                e.currentTarget.style.height = 'auto';
+                e.currentTarget.style.height = `${e.currentTarget.scrollHeight}px`;
+              }}
               placeholder="eg. Create a website for my business"
               disabled={isLoading}
+              rows={1}
+              style={{
+                resize: 'none',
+                overflowY: 'auto',
+                maxHeight: '200px',
+                lineHeight: '1.5',
+                paddingTop: '0.75rem',
+                paddingBottom: '0.75rem'
+              }}
               onKeyDown={e => {
-                if (e.key === 'Enter' && isLoading) {
+                if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
-                  return;
-                }
-                if (e.key === 'Enter' && !input.trim()) {
-                  e.preventDefault();
+                  if (!input.trim() || isLoading) return;
+                  e.currentTarget.form?.requestSubmit();
                 }
               }}
             />

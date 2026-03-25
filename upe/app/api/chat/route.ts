@@ -1,11 +1,22 @@
 import { streamText, UIMessage, convertToModelMessages, smoothStream } from 'ai';
 import { openai } from "@ai-sdk/openai";
+import { auth } from "@/auth";
+import { getCredits, deductCredit } from "@/lib/credits";
 
 export const maxDuration = 60;
 
 export async function POST(req: Request) {
+    const session = await auth();
+    if (!session?.user?.email) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
+    }
+
     const { messages }: { messages: UIMessage[] } = await req.json();
 
+    const credits = await getCredits(session.user.email);
+    if (credits <= 0) {
+      return new Response(JSON.stringify({ error: "You have run out of credits" }), { status: 403 });
+    }
     const result = streamText({
         model: openai("gpt-5-mini"),
         experimental_transform: smoothStream({ delayInMs: 25, chunking: 'word' }),
@@ -93,6 +104,11 @@ OUTPUT RULES
 - [OUTPUT FORMAT] MUST dynamically match the domain (Code vs. Text) as specified above. NEVER ask for functional code on a writing task.
 - The total master prompt should be concise (under 300 tokens ideally).`,
         messages: await convertToModelMessages(messages),
+        onFinish: async ({ text }) => {
+            if (session.user?.email && text.includes('✅ Here is your master prompt:')) {
+                await deductCredit(session.user.email);
+            }
+        }
     });
 
     return result.toUIMessageStreamResponse();
