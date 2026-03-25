@@ -11,6 +11,9 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "AI Prompt Engineer",
   description: "Refine and optimize your prompts with AI",
+  icons: {
+    icon: "logo.png",
+  },
 };
 
 export default function RootLayout({
