@@ -2,6 +2,10 @@
 
 **AI Prompt Engineer** is a professional, high-performance web application built with **Next.js 16** and the **Vercel AI SDK**. It empowers users to craft, refine, and optimize complex AI prompts through a guided, interactive chat experience, ultimately generating a high-quality "Master Prompt" ready for use with LLMs like GPT-5 or Claude.
 
+**🌐 Live Demo:** [promt-engineer.vokh.dev](https://promt-engineer.vokh.dev)
+
+![AI Prompt Engineer Preview](./upe/public/logo.png)
+
 ---
 
 ## ✨ Key Features
@@ -40,8 +44,8 @@
 
 ### 1. Clone the repository
 ```bash
-git clone https://github.com/your-username/upe.git
-cd upe
+git clone https://github.com/tabaak/promt-engineer.git
+cd promt-engineer
 ```
 
 ### 2. Install dependencies
