@@ -45,7 +45,7 @@
 ### 1. Clone the repository
 ```bash
 git clone https://github.com/tabaak/promt-engineer.git
-cd promt-engineer
+cd promt-engineer/upe
 ```
 
 ### 2. Install dependencies
@@ -54,7 +54,7 @@ npm install
 ```
 
 ### 3. Environment Setup
-Create a `.env.local` file in the root directory and add the following:
+Create a `.env.local` file in the `upe/` directory and add the following:
 
 ```env
 # AI
@@ -108,7 +108,6 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 - `auth.ts`: NextAuth configuration.
 - `middleware.ts`: Security and route protection.
 
----
+*(All project files are located within the `upe/` directory)*
 
-## 📜 License
-This project is for demonstration purposes. [MIT License](LICENSE) (if applicable).
+
