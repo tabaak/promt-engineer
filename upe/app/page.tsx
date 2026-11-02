@@ -1,109 +1,147 @@
 'use client';
 
 import { useChat } from '@ai-sdk/react';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, type CSSProperties, type ReactNode } from 'react';
 import { useSession, signOut } from 'next-auth/react';
+import { SpecSheet } from './components/spec-sheet';
 
-const UserIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0" style={{ color: 'var(--brand-light)', filter: 'drop-shadow(0 0 8px rgba(165, 180, 252, 0.6))' }}>
-    <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
-    <circle cx="12" cy="7" r="4" />
+// The chat API writes this exact line before a master prompt, and also uses it to deduct a credit.
+const MASTER_PROMPT_TRIGGER = '✅ Here is your master prompt:';
+
+const Icon = ({ children }: { children: ReactNode }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0" aria-hidden="true">
+    {children}
   </svg>
 );
 
-const BotIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0" style={{ color: 'var(--blue-light)' }}>
-    <rect width="16" height="12" x="4" y="8" rx="2" />
-    <path d="M2 14h2" />
-    <path d="M20 14h2" />
-    <path d="M15 13v2" />
-    <path d="M9 13v2" />
-    <path d="M12 8V4H8" />
-  </svg>
+const UserIcon = () => (
+  <Icon>
+    <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+    <circle cx="12" cy="7" r="4" />
+  </Icon>
 );
 
 const SendIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-    <path d="M22 2L11 13" />
-    <path d="M22 2L15 22L11 13L2 9L22 2Z" />
-  </svg>
+  <Icon>
+    <path d="M12 19V5" />
+    <path d="m5 12 7-7 7 7" />
+  </Icon>
 );
 
 const CopyIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  <Icon>
     <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
     <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
-  </svg>
+  </Icon>
 );
 
 const CheckIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  <Icon>
     <polyline points="20 6 9 17 4 12" />
-  </svg>
-);
-
-const ThinkingIcon = () => (
-  <div style={{ display: 'flex', gap: '4px', alignItems: 'center', height: '24px', paddingLeft: '4px' }}>
-    <div className="dot-flashing" style={{ animationDelay: '0s' }}></div>
-    <div className="dot-flashing" style={{ animationDelay: '0.2s' }}></div>
-    <div className="dot-flashing" style={{ animationDelay: '0.4s' }}></div>
-    <style>{`
-      .dot-flashing {
-        width: 6px;
-        height: 6px;
-        border-radius: 50%;
-        background-color: var(--brand-light, #818cf8);
-        animation: dot-flashing 0.8s infinite alternate;
-      }
-      @keyframes dot-flashing {
-        0% { opacity: 0.3; transform: scale(0.8); }
-        100% { opacity: 1; transform: scale(1.2); }
-      }
-    `}</style>
-  </div>
+  </Icon>
 );
 
 const SignOutIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  <Icon>
     <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
     <polyline points="16 17 21 12 16 7" />
     <line x1="21" y1="12" x2="9" y2="12" />
-  </svg>
+  </Icon>
 );
+
+const WorkingCaret = () => (
+  <span className="working-caret" role="status" aria-label="Writing a reply">
+    _
+  </span>
+);
+
+const AlertIcon = () => (
+  <Icon>
+    <circle cx="12" cy="12" r="10" />
+    <line x1="12" y1="8" x2="12" y2="12" />
+    <line x1="12" y1="16" x2="12.01" y2="16" />
+  </Icon>
+);
+
+const getMessageText = (message: any): string => {
+  if (message?.parts) {
+    return message.parts.map((part: any) => (part.type === 'text' ? part.text : '')).join('');
+  }
+  return message?.content || message?.text || '';
+};
+
+// The chat API sends failures as JSON, which useChat passes along as the error's message.
+const getChatErrorKind = (error: Error): 'credits' | 'session' | 'other' => {
+  try {
+    const serverError = JSON.parse(error.message).error;
+    if (serverError === 'You have run out of credits') return 'credits';
+    if (serverError === 'Unauthorized') return 'session';
+  } catch {
+    // Not JSON, so it isn't one of the API's own responses.
+  }
+  return 'other';
+};
 
 export default function Chat() {
   const { data: session } = useSession();
   const [input, setInput] = useState('');
   const [finalPrompt, setFinalPrompt] = useState<string | null>(null);
-  const [leftWidth, setLeftWidth] = useState(60);
+  const [leftWidth, setLeftWidth] = useState(50);
   const [isDragging, setIsDragging] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
   const [credits, setCredits] = useState<number | null>(null);
-  const [showCredits, setShowCredits] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
-  const { messages, sendMessage, append, status } = useChat() as any;
+  const accountRef = useRef<HTMLDivElement>(null);
+  const accountButtonRef = useRef<HTMLButtonElement>(null);
+  const { messages, sendMessage, append, regenerate, status, error } = useChat() as any;
   const isLoading = status === 'submitted' || status === 'streaming';
+  const userEmail = session?.user?.email;
+  const chatErrorKind = error ? getChatErrorKind(error) : null;
 
-  const toggleCredits = async () => {
-    if (!showCredits) {
-      try {
-        const res = await fetch('/api/credits');
-        const data = await res.json();
-        if (data.credits !== undefined) {
+  // Load credits on arrival and again after each reply, since a finished master prompt uses one.
+  useEffect(() => {
+    if (!userEmail || status === 'submitted' || status === 'streaming') return;
+    let isCurrent = true;
+    fetch('/api/credits')
+      .then(res => res.json())
+      .then(data => {
+        if (isCurrent && data.credits !== undefined) {
           setCredits(data.credits);
         }
-      } catch (err) {
-        console.error("Failed to fetch credits", err);
+      })
+      .catch(err => console.error("Failed to fetch credits", err));
+    return () => {
+      isCurrent = false;
+    };
+  }, [userEmail, status]);
+
+  useEffect(() => {
+    if (!showMenu) return;
+    const handlePointerDown = (e: PointerEvent) => {
+      if (!accountRef.current?.contains(e.target as Node)) {
+        setShowMenu(false);
       }
-    }
-    setShowCredits(!showCredits);
-  };
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setShowMenu(false);
+        accountButtonRef.current?.focus();
+      }
+    };
+    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [showMenu]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  }, [messages, error]);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -137,16 +175,9 @@ export default function Chat() {
     }
     const lastAssistantMessage = [...messages].reverse().find((m: any) => m.role === 'assistant');
     if (lastAssistantMessage) {
-      let textContent = '';
-      if (lastAssistantMessage.parts) {
-        textContent = lastAssistantMessage.parts.map((p: any) => p.type === 'text' ? p.text : '').join('');
-      } else {
-        textContent = lastAssistantMessage.content || lastAssistantMessage.text || '';
-      }
-
-      const trigger = '✅ Here is your master prompt:';
-      if (textContent.includes(trigger)) {
-        const parts = textContent.split(trigger);
+      const textContent = getMessageText(lastAssistantMessage);
+      if (textContent.includes(MASTER_PROMPT_TRIGGER)) {
+        const parts = textContent.split(MASTER_PROMPT_TRIGGER);
         if (parts.length > 1) {
           setFinalPrompt(parts[1].trim());
         }
@@ -154,387 +185,225 @@ export default function Chat() {
     }
   }, [messages]);
 
+  const hasMessages = messages && messages.length > 0;
+
   return (
-    <div
-      className="layout-container"
-      ref={containerRef}
-      style={{ userSelect: isDragging ? 'none' : 'auto' }}
-    >
-
-      {/* Left Pane: Chat */}
-      <div className="chat-pane" style={{ display: 'flex', flexDirection: 'column', width: `${leftWidth}%`, minWidth: '300px' }}>
-        <header style={{ flexShrink: 0, marginBottom: '2rem', position: 'relative' }}>
-          {session?.user && (
-            <div style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              display: 'flex',
-              flexDirection: 'row',
-              alignItems: 'flex-start',
-              gap: '0.6rem',
-            }}>
-              <div style={{ position: 'relative' }}>
-                <div
-                  onClick={toggleCredits}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    width: '48px',
-                    height: '48px',
-                    backgroundColor: showCredits ? 'rgba(165, 180, 252, 0.12)' : 'rgba(111, 131, 232, 0.09)',
-                    borderRadius: '12px',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease',
-                    border: showCredits ? '1px solid rgba(165, 180, 252, 0.4)' : '1px solid rgba(165, 180, 252, 0.15)',
-                    boxShadow: showCredits ? '0 0 12px rgba(165, 180, 252, 0.15)' : 'none',
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!showCredits) e.currentTarget.style.backgroundColor = 'rgba(165, 180, 252, 0.13)';
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!showCredits) e.currentTarget.style.backgroundColor = 'rgba(165, 180, 252, 0.09)';
-                  }}
-                >
-                  {session?.user?.image ? (
-                    <img
-                      src={session.user.image}
-                      alt="User Avatar"
-                      style={{
-                        width: '38px',
-                        height: '38px',
-                        borderRadius: '50%',
-                        border: '1px solid rgba(165, 180, 252, 0.3)',
-                        transition: 'all 0.2s ease',
-                      }}
-                    />
-                  ) : (
-                    <div
-                      style={{
-                        width: '38px',
-                        height: '38px',
-                        borderRadius: '50%',
-                        border: '1px solid rgba(165, 180, 252, 0.3)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        backgroundColor: 'rgba(129, 140, 248, 0.1)',
-                        color: 'var(--brand-light)',
-                        transition: 'all 0.2s ease',
-                      }}
-                    >
-                      <UserIcon />
-                    </div>
-                  )}
-                </div>
-                {showCredits && (
-                  <div style={{
-                    position: 'absolute',
-                    top: '56px',
-                    left: '0',
-                    backgroundColor: 'var(--bg-card, #1e1e24)',
-                    border: '1px solid var(--border-subtle, #333)',
-                    padding: '0.7rem',
-                    borderRadius: '8px',
-                    fontSize: '0.85rem',
-                    color: 'var(--text-primary)',
-                    boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
-                    zIndex: 50,
-                    minWidth: '160px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '0.6rem',
-                  }}>
-                    <div style={{ paddingBottom: '0.5rem', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                      <div style={{ fontSize: '0.75rem', opacity: 0.6, marginBottom: '0.2rem' }}>Signed in as</div>
-                      <div style={{ fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '140px' }} title={session.user.name || session.user.email || ''}>
-                        {session.user.name || session.user.email}
-                      </div>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '0.2rem 0' }}>
-                      <span style={{ fontSize: '0.85rem' }}>Credits</span>
-                      {credits !== null ? (
-                        <span style={{ fontWeight: 600, color: 'var(--blue-light)' }}>{credits}</span>
-                      ) : (
-                        <span style={{ opacity: 0.5, fontSize: '0.8rem' }}>...</span>
-                      )}
-                    </div>
-                    <button
-                      onClick={() => signOut({ callbackUrl: '/login' })}
-                      id="sign-out-button"
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '0.4rem',
-                        padding: '0.4rem',
-                        backgroundColor: 'rgba(248, 113, 113, 0.1)',
-                        color: 'var(--error, #f87171)',
-                        border: '1px solid rgba(248, 113, 113, 0.2)',
-                        borderRadius: '6px',
-                        cursor: 'pointer',
-                        fontSize: '0.8rem',
-                        fontWeight: 500,
-                        transition: 'all 0.2s ease',
-                        width: '100%',
-                        marginTop: '0.2rem',
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.backgroundColor = 'rgba(248, 113, 113, 0.2)';
-                        e.currentTarget.style.borderColor = 'rgba(248, 113, 113, 0.4)';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor = 'rgba(248, 113, 113, 0.1)';
-                        e.currentTarget.style.borderColor = 'rgba(248, 113, 113, 0.2)';
-                      }}
-                    >
-                      <SignOutIcon />
-                      Sign Out
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-          <h1 className="main-title" style={{ textAlign: 'center' }}>AI Prompt Engineer</h1>
-          <p className="subtitle" style={{ textAlign: 'center' }}>Refine and optimize your prompts</p>
-        </header>
-
-        <main className="results-row" style={{ flex: 1, overflowY: 'auto', flexDirection: 'column', gap: '1rem', paddingBottom: '2rem', paddingRight: '0.5rem' }}>
-          {(!messages || messages.length === 0) && (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1, opacity: 0.7 }}>
-              <BotIcon />
-              <p style={{ marginTop: '1rem', fontSize: '1rem', color: 'var(--text-secondary)' }}>Let's engineer something great!</p>
-            </div>
-          )}
-
-          {messages?.map((message: any, index: number) => {
-            // Check if this message contains the trigger to highlight it or keep it as is
-            let displayContent = null;
-            let isFinalPromptMessage = false;
-
-            let rawContent = '';
-            if (message?.parts) {
-              rawContent = message.parts.map((part: any) => part.type === 'text' ? part.text : '').join('');
-            } else {
-              rawContent = message.content || message.text || '';
-            }
-
-            const trigger = '✅ Here is your master prompt:';
-            if (message.role === 'assistant' && rawContent.includes(trigger)) {
-              isFinalPromptMessage = true;
-              const [preTrigger] = rawContent.split(trigger);
-              displayContent = preTrigger.trim() ? (
-                <>
-                  <div style={{ paddingBottom: '0.5rem' }}>{preTrigger.trim()}</div>
-                  <div style={{ marginTop: '0.5rem', padding: '0.75rem', backgroundColor: 'rgba(52, 211, 153, 0.1)', border: '1px solid rgba(52, 211, 153, 0.3)', borderRadius: '8px', color: 'var(--success)' }}>
-                    ✅ The master prompt has been generated and moved to the Canvas on the right.
-                  </div>
-                </>
-              ) : (
-                <div style={{ padding: '0.75rem', backgroundColor: 'rgba(52, 211, 153, 0.1)', border: '1px solid rgba(52, 211, 153, 0.3)', borderRadius: '8px', color: 'var(--success)' }}>
-                  ✅ The master prompt has been generated and moved to the Canvas on the right.
-                </div>
-              );
-            } else {
-              displayContent = message?.parts ? message.parts.map((part: any, i: number) => {
-                switch (part.type) {
-                  case 'text':
-                    return <div key={`${message.id || index}-${i}`}>{part.text}</div>;
-                  default:
-                    return null;
-                }
-              }) : rawContent;
-            }
-
-            return (
-              <div
-                key={message.id || index}
-                className="result-card"
-                style={{
-                  animationDelay: `${(index % 3) * 0.1}s`,
-                  maxWidth: '85%',
-                  alignSelf: message.role === 'user' ? 'flex-end' : 'flex-start',
-                  marginLeft: message.role === 'user' ? 'auto' : '0',
-                  marginRight: message.role === 'user' ? '0' : 'auto',
-                  border: message.role === 'user' ? '1px solid rgba(165, 180, 252, 0.3)' : (isFinalPromptMessage ? '1px solid rgba(52, 211, 153, 0.4)' : '1px solid var(--border-subtle)'),
-                  backgroundColor: message.role === 'user' ? 'rgba(129, 140, 248, 0.08)' : 'var(--bg-card)',
-                  boxShadow: message.role === 'user' ? '0 0 3px rgba(129, 140, 248, 0.15)' : (isFinalPromptMessage ? '0 0 12px rgba(52, 211, 153, 0.15)' : 'none')
-                }}
-              >
-                <div className="card-header" style={{ marginBottom: '0.5rem', opacity: 0.8 }}>
-                  {message.role === 'user' ? (
-                    <>
-                      <UserIcon />
-                      <span className="region-badge" style={{
-                        marginLeft: '0.5rem',
-                        color: 'var(--brand-light)',
-                        backgroundColor: 'rgba(129, 140, 248, 0.15)',
-                        border: '1px solid rgba(129, 140, 248, 0.4)',
-                        boxShadow: '0 0 12px rgba(129, 140, 248, 0.4)',
-                        textShadow: '0 0 8px rgba(165, 180, 252, 0.6)'
-                      }}>You</span>
-                    </>
-                  ) : (
-                    <>
-                      <BotIcon />
-                      <span className="region-badge" style={{ marginLeft: '0.5rem', backgroundColor: isFinalPromptMessage ? 'rgba(52, 211, 153, 0.15)' : '', color: isFinalPromptMessage ? 'var(--success)' : '', boxShadow: isFinalPromptMessage ? '0 0 8px rgba(52, 211, 153, 0.5)' : '', borderColor: isFinalPromptMessage ? 'rgba(52, 211, 153, 0.4)' : '' }}>Assistant</span>
-                    </>
-                  )}
-                </div>
-
-                <div style={{
-                  fontSize: '1rem',
-                  color: 'var(--text-primary)',
-                  whiteSpace: 'pre-wrap',
-                  lineHeight: '1.6',
-                  animation: message.role === 'assistant' ? 'textStreamReveal 0.6s ease-out' : 'none'
-                }}>
-                  {message.role === 'assistant' && (!rawContent || !rawContent.trim()) ? (
-                    <ThinkingIcon />
-                  ) : (
-                    displayContent
-                  )}
-                </div>
-              </div>
-            );
-          })}
-          {isLoading && (!messages || messages.length === 0 || messages[messages.length - 1].role === 'user') && (
-            <div
-              className="result-card"
-              style={{
-                maxWidth: '85%',
-                alignSelf: 'flex-start',
-                marginLeft: '0',
-                marginRight: 'auto',
-                border: '1px solid var(--border-subtle)',
-                backgroundColor: 'var(--bg-card)',
-              }}
-            >
-              <div className="card-header" style={{ marginBottom: '0.5rem', opacity: 0.8 }}>
-                <BotIcon />
-                <span className="region-badge" style={{ marginLeft: '0.5rem' }}>Assistant</span>
-              </div>
-              <ThinkingIcon />
-            </div>
-          )}
-          <div ref={messagesEndRef} style={{ height: '1px', flexShrink: 0 }} />
-        </main>
-
-        <footer style={{ flexShrink: 0, marginTop: 'auto', paddingTop: '1rem' }}>
-          <form
-            className="search-wrapper"
-            style={{ maxWidth: '100%', margin: '0 auto' }}
-            onSubmit={e => {
-              e.preventDefault();
-              if (!input.trim() || isLoading) return;
-              if (typeof sendMessage === 'function') {
-                sendMessage({ text: input });
-              } else if (typeof append === 'function') {
-                append({ role: 'user', content: input });
-              }
-              setInput('');
-              const textarea = e.currentTarget.querySelector('textarea');
-              if (textarea) {
-                textarea.style.height = 'auto';
-              }
-            }}
-          >
-            <textarea
-              className="search-input"
-              value={input}
-              onChange={e => {
-                setInput(e.currentTarget.value);
-                e.currentTarget.style.height = 'auto';
-                e.currentTarget.style.height = `${e.currentTarget.scrollHeight}px`;
-              }}
-              placeholder="eg. Create a website for my business"
-              disabled={isLoading}
-              rows={1}
-              style={{
-                resize: 'none',
-                overflowY: 'auto',
-                maxHeight: '200px',
-                lineHeight: '1.5',
-                paddingTop: '0.75rem',
-                paddingBottom: '0.75rem'
-              }}
-              onKeyDown={e => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  if (!input.trim() || isLoading) return;
-                  e.currentTarget.form?.requestSubmit();
-                }
-              }}
-            />
-            <button
-              type="submit"
-              disabled={!input.trim() || isLoading}
-              className="submit-btn"
-              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-              aria-label="Send message"
-            >
-              <SendIcon />
-            </button>
-          </form>
-        </footer>
-      </div>
-
-      {/* Resizer */}
-      <div
-        className={`resizer-container ${isDragging ? 'active' : ''}`}
-        onMouseDown={() => setIsDragging(true)}
-      >
-        <div className="resizer-bar" />
-      </div>
-
-      {/* Right Pane: Canvas */}
-      <aside className="canvas-pane" style={{ position: 'relative' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem' }}>
-          <h2 className={`canvas-header ${finalPrompt ? 'active' : ''}`} style={{ marginBottom: 0 }}>
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" /><polyline points="14 2 14 8 20 8" /></svg>
-            Master Prompt Canvas
-          </h2>
-          {finalPrompt && (
-            <button
-              onClick={() => {
-                navigator.clipboard.writeText(finalPrompt);
-                setIsCopied(true);
-                setTimeout(() => setIsCopied(false), 2000);
-              }}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                padding: '0.5rem 1rem',
-                backgroundColor: isCopied ? 'rgba(52, 211, 153, 0.15)' : 'rgba(129, 140, 248, 0.1)',
-                color: isCopied ? 'var(--success)' : 'var(--brand-light)',
-                border: `1px solid ${isCopied ? 'rgba(52, 211, 153, 0.3)' : 'rgba(129, 140, 248, 0.2)'}`,
-                borderRadius: '8px',
-                cursor: 'pointer',
-                fontSize: '0.85rem',
-                fontWeight: 500,
-                transition: 'all 0.2s ease',
-              }}
-            >
-              {isCopied ? <CheckIcon /> : <CopyIcon />}
-              {isCopied ? 'Copied!' : 'Copy'}
-            </button>
-          )}
+    <div className="app" style={{ userSelect: isDragging ? 'none' : 'auto' }}>
+      <header className="topbar">
+        <div className="brand">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.png" alt="" className="brand-mark" />
+          <h1>AI Prompt Engineer</h1>
         </div>
-        {finalPrompt ? (
-          <div className="final-prompt-content" style={{ fontSize: '1.05rem', lineHeight: '1.7', color: 'var(--text-primary)', whiteSpace: 'pre-wrap' }}>
-            {finalPrompt}
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flex: 1, flexDirection: 'column', alignItems: 'center', justifyContent: 'center', opacity: 0.5, textAlign: 'center' }}>
-            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: '1rem' }}><circle cx="12" cy="12" r="10" /><path d="M12 8v4l3 3" /></svg>
-            <p style={{ maxWidth: '280px', lineHeight: '1.5' }}>Your master prompt will appear here once the AI has finished analyzing your request.</p>
+
+        {session?.user && (
+          <div className="account" ref={accountRef}>
+            {credits !== null && (
+              <span className="account-credits">
+                {credits} {credits === 1 ? 'credit' : 'credits'}
+              </span>
+            )}
+            <button
+              type="button"
+              className="account-button"
+              ref={accountButtonRef}
+              onClick={() => setShowMenu(!showMenu)}
+              aria-label="Account"
+              aria-expanded={showMenu}
+            >
+              {session.user.image ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={session.user.image} alt="" />
+              ) : (
+                <UserIcon />
+              )}
+            </button>
+            {showMenu && (
+              <div className="account-menu">
+                <div className="account-who">
+                  <div className="account-who-label">Signed in as</div>
+                  <div className="account-who-name" title={session.user.name || session.user.email || ''}>
+                    {session.user.name || session.user.email}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => signOut({ callbackUrl: '/login' })}
+                  id="sign-out-button"
+                  className="account-signout"
+                >
+                  <SignOutIcon />
+                  Sign out
+                </button>
+              </div>
+            )}
           </div>
         )}
-      </aside>
+      </header>
 
+      <div className="workspace" ref={containerRef}>
+        {/* Left pane: chat */}
+        <div className="chat-pane" style={{ '--chat-width': `${leftWidth}%` } as CSSProperties}>
+          <main className="chat-scroll">
+            <div className="chat-column">
+              {!hasMessages && (
+                <div className="chat-empty">
+                  <h2 className="chat-empty-title">What are you making?</h2>
+                  <p className="chat-empty-text">
+                    Describe it in a sentence. You’ll get a few short questions at most, then a master prompt to copy.
+                  </p>
+                </div>
+              )}
+
+              {messages?.map((message: any, index: number) => {
+                const isUser = message.role === 'user';
+                const rawContent = getMessageText(message);
+                const hasTrigger = !isUser && rawContent.includes(MASTER_PROMPT_TRIGGER);
+                const leadIn = hasTrigger ? rawContent.split(MASTER_PROMPT_TRIGGER)[0].trim() : rawContent;
+                const isWriting = isLoading && index === messages.length - 1;
+
+                // A reply that failed before any text arrived leaves an empty message behind.
+                if (!isUser && !rawContent.trim() && !isWriting) return null;
+
+                return (
+                  <div
+                    key={message.id || index}
+                    className={`message ${isUser ? 'message-user' : 'message-assistant'}`}
+                  >
+                    {!isUser && !rawContent.trim() ? (
+                      <WorkingCaret />
+                    ) : (
+                      <>
+                        {leadIn && <div className="message-text">{leadIn}</div>}
+                        {hasTrigger && (
+                          <div className="message-status">
+                            {isWriting ? (
+                              'Writing your master prompt'
+                            ) : (
+                              <>
+                                <CheckIcon />
+                                <span>Master prompt ready</span>
+                                <a href="#master-prompt" className="message-status-link">View</a>
+                              </>
+                            )}
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+
+              {isLoading && (!hasMessages || messages[messages.length - 1].role === 'user') && (
+                <div className="message message-assistant">
+                  <WorkingCaret />
+                </div>
+              )}
+
+              {chatErrorKind && (
+                <div className="chat-error" role="alert">
+                  <AlertIcon />
+                  {chatErrorKind === 'credits' && <span>You’re out of credits, so no prompt was written</span>}
+                  {chatErrorKind === 'session' && (
+                    <>
+                      <span>Your session has ended</span>
+                      <a href="/login" className="chat-error-action">Sign in</a>
+                    </>
+                  )}
+                  {chatErrorKind === 'other' && (
+                    <>
+                      <span>The reply couldn’t be written</span>
+                      <button type="button" className="chat-error-action" onClick={() => regenerate()}>
+                        Try again
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+              <div ref={messagesEndRef} className="chat-end" />
+            </div>
+          </main>
+
+          <footer className="composer-wrap">
+            <form
+              className="composer"
+              onSubmit={e => {
+                e.preventDefault();
+                if (!input.trim() || isLoading) return;
+                if (typeof sendMessage === 'function') {
+                  sendMessage({ text: input });
+                } else if (typeof append === 'function') {
+                  append({ role: 'user', content: input });
+                }
+                setInput('');
+                const textarea = e.currentTarget.querySelector('textarea');
+                if (textarea) {
+                  textarea.style.height = 'auto';
+                }
+              }}
+            >
+              <span className="composer-caret" aria-hidden="true">&gt;</span>
+              <textarea
+                className="composer-input"
+                value={input}
+                onChange={e => {
+                  setInput(e.currentTarget.value);
+                  e.currentTarget.style.height = 'auto';
+                  e.currentTarget.style.height = `${e.currentTarget.scrollHeight}px`;
+                }}
+                placeholder="Create a website for my business"
+                aria-label="Message"
+                disabled={isLoading}
+                rows={1}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    if (!input.trim() || isLoading) return;
+                    e.currentTarget.form?.requestSubmit();
+                  }
+                }}
+              />
+              <button
+                type="submit"
+                disabled={!input.trim() || isLoading}
+                className="composer-send"
+                aria-label="Send message"
+              >
+                <SendIcon />
+              </button>
+            </form>
+          </footer>
+        </div>
+
+        {/* Resizer */}
+        <div
+          className={`resizer ${isDragging ? 'active' : ''}`}
+          onMouseDown={() => setIsDragging(true)}
+        >
+          <div className="resizer-grip" />
+        </div>
+
+        {/* Right pane: canvas */}
+        <aside className="canvas-pane" id="master-prompt">
+          <SpecSheet
+            text={finalPrompt}
+            aside={finalPrompt && (
+              <button
+                type="button"
+                className="copy-button"
+                onClick={() => {
+                  navigator.clipboard.writeText(finalPrompt);
+                  setIsCopied(true);
+                  setTimeout(() => setIsCopied(false), 2000);
+                }}
+              >
+                {isCopied ? <CheckIcon /> : <CopyIcon />}
+                {isCopied ? 'Copied' : 'Copy'}
+              </button>
+            )}
+          />
+        </aside>
+      </div>
     </div>
   );
 }

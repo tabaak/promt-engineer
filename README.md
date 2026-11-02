@@ -1,28 +1,26 @@
-# 🧠 AI Prompt Engineer (UPE)
+# AI Prompt Engineer (UPE)
 
-**AI Prompt Engineer** is a professional, high-performance web application built with **Next.js 16** and the **Vercel AI SDK**. It empowers users to craft, refine, and optimize complex AI prompts through a guided, interactive chat experience, ultimately generating a high-quality "Master Prompt" ready for use with LLMs like GPT-5 or Claude.
+AI Prompt Engineer turns a rough idea into a master prompt you can paste into tools like Cursor, v0, ChatGPT or Claude. A short chat asks only for what's missing, then writes the prompt. It's built with Next.js 16 and the Vercel AI SDK.
 
-**🌐 Live Demo:** [promt-engineer.vokh.dev](https://promt-engineer.vokh.dev)
+**Live demo:** [promt-engineer.vokh.dev](https://promt-engineer.vokh.dev)
 
-![AI Prompt Engineer Preview](./upe/public/logo.png)
-
----
-
-## ✨ Key Features
-
-- **🤖 AI-Guided Engineering:** An interactive chat assistant that helps clarify requirements and expand on initial ideas.
-- **🎨 Modern Split-Pane UI:** A sleek, dark-themed workspace with a real-time resizable split:
-  - **Left Pane:** Chat interface for conversation and refinement.
-  - **Right Pane:** "Master Prompt Canvas" where the final optimized prompt is displayed.
-- **📊 Credit-Based System:** Built-in usage tracking with 3 initial credits provided upon user registration.
-- **🔐 Secure Authentication:** Seamless Google OAuth integration via **NextAuth.js (v5)**.
-- **⚡ Real-Time Streaming:** Leveraging Vercel AI SDK for ultra-fast, streaming AI responses.
-- **📋 Copy-to-Clipboard:** One-click copying of the final engineered prompt.
-- **📱 Responsive & Resizable:** Fully responsive design with an interactive divider to adjust your workspace.
+<img src="./upe/public/logo.png" alt="AI Prompt Engineer logo" width="96" />
 
 ---
 
-## 🛠️ Tech Stack
+## Features
+
+- **Guided chat:** the assistant asks a few short questions when your idea is missing something important, and skips them when it isn't.
+- **Resizable workspace:** the conversation sits on the left and the master prompt on the right, with a divider between them. On small screens the two stack.
+- **Structured output:** each master prompt is laid out as Role, Context, Task, Constraints and Output format.
+- **Copy button:** copies the finished prompt in one click.
+- **Credits:** new users get 3 credits, and each finished master prompt uses one.
+- **Google sign-in:** handled by NextAuth.js v5.
+- **Streaming replies:** responses appear as they're written, using the Vercel AI SDK.
+
+---
+
+## Tech Stack
 
 ### Core
 - **Framework:** [Next.js 16](https://nextjs.org/) (App Router)
@@ -40,7 +38,7 @@
 
 ---
 
-## 🚀 Getting Started
+## Getting Started
 
 ### 1. Clone the repository
 ```bash
@@ -100,7 +98,7 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 ---
 
-## 📂 Project Structure
+## Project Structure
 
 - `app/`: Next.js App Router components and API routes.
 - `lib/`: Utility functions and database logic (Supabase client, credit management).
