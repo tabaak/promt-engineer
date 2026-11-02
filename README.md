@@ -1,6 +1,6 @@
 # AI Prompt Engineer (UPE)
 
-AI Prompt Engineer turns a rough idea into a master prompt you can paste into tools like Cursor, v0, ChatGPT or Claude. A short chat asks only for what's missing, then writes the prompt. It's built with Next.js 16 and the Vercel AI SDK.
+AI Prompt Engineer turns a rough idea into a precise master prompt you can copy and paste. A short chat asks only for what's missing, then writes the prompt. It's built with Next.js 16 and the Vercel AI SDK.
 
 **Live demo:** [promt-engineer.vokh.dev](https://promt-engineer.vokh.dev)
 
