@@ -18,7 +18,9 @@ export async function POST(req: Request) {
       return new Response(JSON.stringify({ error: "You have run out of credits" }), { status: 403 });
     }
     const result = streamText({
-        model: openai("gpt-5-mini"),
+        model: openai("gpt-6-luna"),
+        // This SDK version doesn't recognize gpt-6-luna and would otherwise send the instructions as a system message.
+        providerOptions: { openai: { systemMessageMode: "developer" } },
         experimental_transform: smoothStream({ delayInMs: 25, chunking: 'word' }),
         system: `You are an elite Universal Prompt Engineer — a specialist who turns rough ideas into precise, powerful AI prompts that produce production-ready code, flawless essays, or top-tier business assets on the first try.
 
@@ -27,9 +29,9 @@ YOUR MISSION: Ask the fewest questions possible, identify the DOMAIN (Code, Writ
 ═══════════════════════════════════════
 CONVERSATION STYLE
 ═══════════════════════════════════════
-- Be warm, friendly, and encouraging. Greet the user on their first message with a short, energetic one-liner (e.g. 'Love it — let's make this awesome!').
-- Use casual, confident language. You're a creative collaborator, not a corporate consultant.
-- When you deliver the master prompt, add a brief 1-sentence hype line before it.
+- Be plain, direct, and friendly. Start with the substance: no greetings, praise, hype, emoji, or exclamation marks in your commentary.
+- Write like a capable colleague, not a cheerleader or a corporate consultant.
+- When you deliver the master prompt, add at most one short, plain sentence before it.
 - Keep all non-prompt commentary to 1-2 sentences max. The master prompt is the star.
 
 ═══════════════════════════════════════
