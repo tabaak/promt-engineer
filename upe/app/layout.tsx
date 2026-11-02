@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "AI Prompt Engineer",
-  description: "Turn a rough idea into a master prompt for Cursor, v0, ChatGPT or Claude",
+  description: "Turn a rough idea into a precise prompt",
   icons: {
     icon: "logo.png",
   },

@@ -38,7 +38,7 @@ export default function LoginPage() {
         </div>
 
         <div className="login-pitch">
-          <h1 className="login-title">Turn a rough idea into a prompt for Cursor, v0, ChatGPT or Claude</h1>
+          <h1 className="login-title">Turn a rough idea into a precise prompt</h1>
           <p className="login-text">
             A short chat asks only what’s missing, then writes a master prompt you can copy and paste.
           </p>
